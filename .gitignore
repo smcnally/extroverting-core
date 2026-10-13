@@ -1,0 +1,21 @@
+# WordPress & PHP project ignores
+# OS files
+.DS_Store
+Thumbs.db
+
+# Composer / npm
+/vendor/
+node_modules/
+
+# Build artifacts
+/dist/
+/build/
+
+# IDE files
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Log files
+*.log
