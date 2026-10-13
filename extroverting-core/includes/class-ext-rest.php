@@ -273,7 +273,7 @@ final class Ext_REST {
 			if ( '' === $username ) {
 				return new \WP_Error( 'ext_bad_username', __( 'Username cannot be empty.', 'extroverting-core' ), array( 'status' => 400 ) );
 			}
-			$unique = wp_unique_username( $username, $uid );
+			$unique = ext_unique_username( $username, (int) $uid );
 			$res    = wp_update_user( array( 'ID' => $uid, 'user_login' => $unique ) );
 			if ( is_wp_error( $res ) ) {
 				return $res;

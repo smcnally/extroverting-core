@@ -1,0 +1,16 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - extroverting-core/
+
+    # Narrow, documented exceptions only. Add new code errors as fixes, not here.
+    ignoreErrors:
+        # wordpress-stubs types wp_insert_post() as returning int only, but WordPress
+        # can return WP_Error (e.g. permission failure). The is_wp_error() checks in
+        # the seeder are correct at runtime.
+        -
+            identifier: function.impossibleType
+            path: extroverting-core/includes/class-ext-seed.php

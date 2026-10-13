@@ -85,7 +85,7 @@ final class Ext_Auth {
 	 * Validate + normalize a contact (email or phone).
 	 *
 	 * @param string $value Raw input.
-	 * @return array{channel:string, value:string} on success.
+	 * @return array{channel:string, value:string}|null Normalized contact, or null when unrecognized.
 	 */
 	public function normalize_contact( $value ) {
 		$value = sanitize_text_field( wp_unslash( (string) $value ) );
@@ -161,12 +161,13 @@ final class Ext_Auth {
 		$digest = hash_hmac( 'sha256', $code, wp_salt( 'auth' ) );
 		$otp_key = self::OPT_PREFIX . 'otp_' . md5( $contact['value'] );
 
+		// No-autoload: OTP rows are short-lived and must not bloat the autoload cache.
 		add_option( $otp_key, array(
-			'digest'  => $digest,
-			'ttl'     => time() + ( EXT_OTP_TTL_MINUTES * 60 ),
+			'digest'   => $digest,
+			'ttl'      => time() + ( EXT_OTP_TTL_MINUTES * 60 ),
 			'attempts' => 0,
-			'channel' => $contact['channel'],
-		), false, 'site' );
+			'channel'  => $contact['channel'],
+		), '', false );
 		update_option( $cooldown_key, time() );
 
 		$dev = self::is_dev_mode();
@@ -215,7 +216,7 @@ final class Ext_Auth {
 		// Compare against the stored digest constant-time-ish.
 		if ( ! hash_equals( $otp['digest'], $digest ) ) {
 			$otp['attempts'] = (int) $otp['attempts'] + 1;
-			update_option( $otp_key, $otp, false, 'site' );
+			update_option( $otp_key, $otp, false );
 			return array( 'ok' => false, 'error' => __( 'That code did not work. Check it and try again.', 'extroverting-core' ) );
 		}
 
@@ -253,7 +254,7 @@ final class Ext_Auth {
 		if ( '' === $username ) {
 			$username = $this->generate_username();
 		}
-		$username = wp_unique_username( $username );
+		$username = ext_unique_username( $username );
 
 		$user_id = wp_insert_user( array(
 			'user_login' => $username,
@@ -419,7 +420,8 @@ final class Ext_Auth {
 		if ( '' === $slug ) {
 			return;
 		}
-		query_vars()->ext_page = $slug;
+		global $wp_query;
+		$wp_query->set( 'ext_page', $slug );
 	}
 
 	/**
@@ -517,5 +519,29 @@ final class Ext_Auth {
 				);
 			}
 		}
+	}
+}
+
+/**
+ * Find a unique username, optionally excluding one user id (the current owner).
+ *
+ * Appends -2, -3, ... until an unused login is found. There is no equivalent
+ * core helper, so this lives here for use by both the AJAX register path and
+ * the REST account-update endpoint.
+ *
+ * @param string $base       Desired username.
+ * @param int    $exclude_id User id whose existing login should not block.
+ * @return string Unique username.
+ */
+function ext_unique_username( string $base, int $exclude_id = 0 ): string {
+	$candidate = $base;
+	$n         = 2;
+	while ( true ) {
+		$existing = get_user_by( 'login', $candidate );
+		if ( ! $existing || (int) $existing->ID === $exclude_id ) {
+			return $candidate;
+		}
+		$candidate = $base . '-' . $n;
+		$n++;
 	}
 }

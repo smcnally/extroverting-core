@@ -44,7 +44,11 @@ function extroverting_core_seed_sample() {
 	// Ensure a default category exists.
 	$cat_id = wp_insert_term( 'Community', 'ext_event_cat' );
 	if ( is_wp_error( $cat_id ) ) {
-		$cat_id = (int) $cat_id->terms[0];
+		// Term already exists: wp_insert_term() returns a WP_Error whose data is the term id.
+		$data   = $cat_id->get_error_data();
+		$cat_id = is_numeric( $data ) ? (int) $data : 0;
+	} else {
+		$cat_id = (int) $cat_id['term_id'];
 	}
 
 	$events = array(

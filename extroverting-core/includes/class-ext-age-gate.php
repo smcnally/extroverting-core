@@ -127,7 +127,10 @@ final class Ext_Age_Gate {
 	 * @return void
 	 */
 	private function mark_verified() {
-		setcookie( 'ext_age_verified', (string) time(), time() + 86400 * 14, COOKIEPATH ? COOKIEPATH : '/', COOKIE_DOMAIN, is_ssl(), true );
+		// Core defines both at runtime; guard for static analysis and edge hosts.
+		$path   = defined( 'COOKIEPATH' ) ? COOKIEPATH : '/';
+		$domain = defined( 'COOKIE_DOMAIN' ) ? COOKIE_DOMAIN : '';
+		setcookie( 'ext_age_verified', (string) time(), time() + 86400 * 14, $path, $domain, is_ssl(), true );
 		$_COOKIE['ext_age_verified'] = (string) time();
 	}
 
