@@ -31,6 +31,7 @@ require_once EXT_CORE_DIR . 'includes/class-ext-consent.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-rest.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-settings.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-seed.php';
+require_once EXT_CORE_DIR . 'includes/class-ext-import.php';
 
 register_activation_hook( __FILE__, array( 'Extroverting\\Core\\Extroverting_Core', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'Extroverting\\Core\\Extroverting_Core', 'deactivate' ) );
@@ -55,4 +56,15 @@ extroverting_core();
  */
 function extroverting_core_seed_sample() {
 	return \Extroverting\Core\extroverting_core_seed_sample();
+}
+
+/**
+ * Global alias for the namespaced event importer (dev/ops aid), so the
+ * documented `wp eval "extroverting_core_import_events();"` works as written.
+ *
+ * @param string|array|null $data Data file path, decoded payload, or null.
+ * @return array Import summary.
+ */
+function extroverting_core_import_events( $data = null ) {
+	return \Extroverting\Core\extroverting_core_import_events( $data );
 }

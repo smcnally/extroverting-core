@@ -11,7 +11,9 @@ parameters:
     ignoreErrors:
         # wordpress-stubs types wp_insert_post() as returning int only, but WordPress
         # can return WP_Error (e.g. permission failure). The is_wp_error() checks in
-        # the seeder are correct at runtime.
+        # the seeder and importer are correct at runtime.
         -
             identifier: function.impossibleType
-            path: includes/class-ext-seed.php
+            paths:
+                - includes/class-ext-seed.php
+                - includes/class-ext-import.php

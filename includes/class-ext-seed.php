@@ -41,6 +41,9 @@ function extroverting_core_seed_sample() {
 		$created['city'] = $city_id;
 	}
 
+	// Normalize: array_find_by_slug() returns a WP_Post, wp_insert_post() an ID.
+	$city = $city instanceof \WP_Post ? $city->ID : (int) $city;
+
 	// Ensure a default category exists.
 	$cat_id = wp_insert_term( 'Community', 'ext_event_cat' );
 	if ( is_wp_error( $cat_id ) ) {
