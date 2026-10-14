@@ -36,12 +36,14 @@ register_activation_hook( __FILE__, array( 'Extroverting\\Core\\Extroverting_Cor
 register_deactivation_hook( __FILE__, array( 'Extroverting\\Core\\Extroverting_Core', 'deactivate' ) );
 
 /**
- * Boot.
+ * Boot (idempotent) and return the core instance.
  *
- * @return void
+ * @return Extroverting\Core\Extroverting_Core
  */
 function extroverting_core() {
-	Extroverting\Core\Extroverting_Core::instance()->init();
+	$core = Extroverting\Core\Extroverting_Core::instance();
+	$core->init();
+	return $core;
 }
 extroverting_core();
 

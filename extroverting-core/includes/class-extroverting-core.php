@@ -29,6 +29,13 @@ final class Extroverting_Core {
 	private $services = array();
 
 	/**
+	 * Whether init() has already run (init is idempotent).
+	 *
+	 * @var bool
+	 */
+	private $booted = false;
+
+	/**
 	 * Get the singleton.
 	 *
 	 * @return Extroverting_Core
@@ -46,6 +53,11 @@ final class Extroverting_Core {
 	 * @return void
 	 */
 	public function init() {
+		if ( $this->booted ) {
+			return;
+		}
+		$this->booted = true;
+
 		$this->services['content']   = new Ext_Content_Types();
 		$this->services['auth']      = new Ext_Auth();
 		$this->services['saves']     = new Ext_Saves();
