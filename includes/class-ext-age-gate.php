@@ -101,7 +101,7 @@ final class Ext_Age_Gate {
 		if ( ! $this->is_current_gated() ) {
 			return $template;
 		}
-		$gate = locate_template( array( 'templates/age-gate.html' ) );
+		$gate = locate_template( array( 'templates/ext-age-gate.html' ) );
 		return $gate ? $gate : $template;
 	}
 
