@@ -20,7 +20,7 @@ tests_add_filter(
 	'muplugins_loaded',
 	function () {
 		// Load the plugin under test once WordPress is available.
-		require dirname( __DIR__ ) . '/extroverting-core/extroverting-core.php';
+		require dirname( __DIR__ ) . '/extroverting-core.php';
 	}
 );
 

@@ -4,7 +4,7 @@ WordPress plugin for Extroverting (multi-city local events calendar): city/event
 
 ## Install
 
-Copy the `extroverting-core/` subdirectory into `wp-content/plugins/` and activate "Extroverting Core". Requires WordPress 6.6+ and PHP 8.0+.
+The repo root **is** the plugin directory — clone it straight into `wp-content/plugins/extroverting-core/` and activate "Extroverting Core". Subsequent updates are a plain `git pull`. Requires WordPress 6.6+ and PHP 8.0+.
 
 ## Development
 

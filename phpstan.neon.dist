@@ -4,7 +4,8 @@ includes:
 parameters:
     level: 5
     paths:
-        - extroverting-core/
+        - extroverting-core.php
+        - includes/
 
     # Narrow, documented exceptions only. Add new code errors as fixes, not here.
     ignoreErrors:
@@ -13,4 +14,4 @@ parameters:
         # the seeder are correct at runtime.
         -
             identifier: function.impossibleType
-            path: extroverting-core/includes/class-ext-seed.php
+            path: includes/class-ext-seed.php
