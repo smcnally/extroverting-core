@@ -44,3 +44,13 @@ function extroverting_core() {
 	Extroverting\Core\Extroverting_Core::instance()->init();
 }
 extroverting_core();
+
+/**
+ * Global alias for the namespaced sample-content seeder (dev aid), so the
+ * documented `wp eval "extroverting_core_seed_sample();"` works as written.
+ *
+ * @return array Summary of created IDs.
+ */
+function extroverting_core_seed_sample() {
+	return \Extroverting\Core\extroverting_core_seed_sample();
+}
