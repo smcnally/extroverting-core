@@ -68,9 +68,12 @@ final class Ext_Auth {
 		// Pretty route mapping + guards.
 		add_action( 'init', array( $this, 'register_query_var' ) );
 		add_action( 'template_redirect', array( $this, 'map_pretty_routes' ), 5 );
+		add_action( 'template_redirect', array( $this, 'fix_template_status' ), 6 );
 		add_action( 'template_redirect', array( $this, 'guard_dashboard' ), 10 );
 		add_action( 'template_redirect', array( $this, 'guard_register' ), 10 );
 		add_action( 'template_redirect', array( $this, 'guard_login' ), 10 );
+		add_filter( 'pre_get_document_title', array( $this, 'filter_document_title' ), 10 );
+		add_filter( 'document_title_parts', array( $this, 'filter_title_parts' ), 10 );
 
 		// Cron: sweep expired OTP rows (idempotent).
 		add_action( 'extroverting_daily', array( $this, 'sweep_expired_otps' ) );
@@ -447,6 +450,70 @@ final class Ext_Auth {
 		}
 		$candidate = locate_template( array( 'templates/ext-' . $slug . '.html' ) );
 		return $candidate ? $candidate : $template;
+	}
+
+	/**
+	 * Fix 404 status and title for pretty routes — without this, WordPress
+	 * still thinks /account/* is a 404 even though we serve a custom template,
+	 * so the tab reads “Page not found” and status is 404.
+	 *
+	 * @return void
+	 */
+	public function fix_template_status() {
+		$slug = get_query_var( 'ext_page' );
+		if ( ! $slug ) {
+			return;
+		}
+		global $wp_query;
+		$wp_query->is_404        = false;
+		$wp_query->is_home       = false;
+		$wp_query->is_singular   = false;
+		$wp_query->is_archive    = false;
+		status_header( 200 );
+	}
+
+	/**
+	 * Filter document title for pretty routes.
+	 *
+	 * @param string $title Current title (when pre_get_document_title short-circuits).
+	 * @return string
+	 */
+	public function filter_document_title( $title ) {
+		$slug = get_query_var( 'ext_page' );
+		if ( ! $slug ) {
+			return $title;
+		}
+		$map = array(
+			'account-login'       => __( 'Welcome back', 'extroverting-core' ),
+			'account-register'    => __( 'Save your events & quiz results', 'extroverting-core' ),
+			'dashboard'           => __( 'Dashboard', 'extroverting-core' ),
+			'dashboard-calendar'  => __( 'My Calendar', 'extroverting-core' ),
+			'dashboard-routes'    => __( 'My Routes', 'extroverting-core' ),
+			'dashboard-retailers' => __( 'My Retailers', 'extroverting-core' ),
+			'dashboard-settings'  => __( 'Settings', 'extroverting-core' ),
+			'legal-privacy'       => __( 'Privacy Policy', 'extroverting-core' ),
+			'legal-terms'         => __( 'Terms', 'extroverting-core' ),
+			'legal-accessibility' => __( 'Accessibility', 'extroverting-core' ),
+		);
+		return $map[ $slug ] ?? $title;
+	}
+
+	/**
+	 * Ensure title parts are correct for pretty routes (some themes use this).
+	 *
+	 * @param array $parts Title parts.
+	 * @return array
+	 */
+	public function filter_title_parts( $parts ) {
+		$slug = get_query_var( 'ext_page' );
+		if ( ! $slug ) {
+			return $parts;
+		}
+		$title = $this->filter_document_title( '' );
+		if ( $title ) {
+			$parts['title'] = $title;
+		}
+		return $parts;
 	}
 
 	/**
