@@ -63,6 +63,7 @@ final class Ext_Auth {
 		add_action( 'wp_ajax_ext_verify_otp', array( $this, 'ajax_verify_otp' ) );
 		add_action( 'wp_ajax_nopriv_ext_verify_otp', array( $this, 'ajax_verify_otp' ) );
 		add_action( 'wp_ajax_ext_register', array( $this, 'ajax_register' ) );
+		add_action( 'wp_ajax_nopriv_ext_register', array( $this, 'ajax_register' ) );
 
 		// Pretty route mapping + guards.
 		add_action( 'init', array( $this, 'register_query_var' ) );
