@@ -70,6 +70,7 @@ final class Ext_Auth {
 		add_action( 'template_redirect', array( $this, 'map_pretty_routes' ), 5 );
 		add_action( 'template_redirect', array( $this, 'guard_dashboard' ), 10 );
 		add_action( 'template_redirect', array( $this, 'guard_register' ), 10 );
+		add_action( 'template_redirect', array( $this, 'guard_login' ), 10 );
 
 		// Cron: sweep expired OTP rows (idempotent).
 		add_action( 'extroverting_daily', array( $this, 'sweep_expired_otps' ) );
@@ -457,6 +458,20 @@ final class Ext_Auth {
 		$slug = get_query_var( 'ext_page' );
 		if ( $slug && 0 === strpos( $slug, 'dashboard' ) && ! is_user_logged_in() ) {
 			wp_safe_redirect( home_url( '/account/login?redirect_to=' . rawurlencode( '/dashboard' ) ) );
+			exit;
+		}
+	}
+
+	/**
+	 * Guard: account/login should not show when already logged in — show
+	 * dashboard instead (prevents the logged-in “Welcome back” confusion).
+	 *
+	 * @return void
+	 */
+	public function guard_login() {
+		$slug = get_query_var( 'ext_page' );
+		if ( 'account-login' === $slug && is_user_logged_in() ) {
+			wp_safe_redirect( home_url( '/dashboard' ) );
 			exit;
 		}
 	}
