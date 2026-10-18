@@ -108,8 +108,15 @@ function ext_detect_channel( $value ) {
 	if ( is_email( $value ) ) {
 		return 'email';
 	}
-	// 10-digit US phone with optional separators.
-	if ( preg_match( '/^\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$/', $value ) ) {
+	// US phones: 10-digit with optional separators, or 11-digit with leading
+	// 1, or E.164 (+1XXXXXXXXXX). Normalization handles the rest; we just
+	// need to recognise plausible phone shapes here.
+	if ( preg_match( '/^\+?1?[\s().-]*\d{3}[\s().-]*\d{3}[\s().-]*\d{4}\s*$/', $value ) ) {
+		return 'phone';
+	}
+	// Fallback: any 10-15 digit string is treated as phone for intl numbers.
+	$digits = preg_replace( '/\D/', '', $value );
+	if ( $digits && strlen( $digits ) >= 10 && strlen( $digits ) <= 15 ) {
 		return 'phone';
 	}
 	return 'unknown';

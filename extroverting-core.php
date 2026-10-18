@@ -7,9 +7,12 @@
  * Requires at least: 6.6
  * Requires PHP:      8.0
  * Author:            Mean Business
+ * Author URI:        https://meanbusiness.example/
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       extroverting-core
+ * Domain Path:       /languages
+ * Update URI:        https://github.com/smcnally/extroverting-core
  *
  * @package Extroverting\Core
  */
@@ -29,6 +32,7 @@ require_once EXT_CORE_DIR . 'includes/class-ext-saves.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-age-gate.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-consent.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-rest.php';
+require_once EXT_CORE_DIR . 'includes/class-ext-block-bindings.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-settings.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-seed.php';
 require_once EXT_CORE_DIR . 'includes/class-ext-import.php';

@@ -60,13 +60,17 @@ final class Ext_Content_Types {
 			'show_in_rest' => true,
 			'single'       => true,
 			'type'         => 'string',
-			'auth_callback' => '__return_true',
+			'auth_callback' => function () {
+				return current_user_can( 'edit_posts' );
+			},
 		) );
 		register_post_meta( 'ext_city', 'ext_launched', array(
 			'show_in_rest' => true,
 			'single'       => true,
 			'type'         => 'boolean',
-			'auth_callback' => '__return_true',
+			'auth_callback' => function () {
+				return current_user_can( 'edit_posts' );
+			},
 		) );
 	}
 

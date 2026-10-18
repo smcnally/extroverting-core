@@ -70,6 +70,7 @@ final class Ext_Auth {
 		add_action( 'template_redirect', array( $this, 'map_pretty_routes' ), 5 );
 		add_action( 'template_redirect', array( $this, 'guard_dashboard' ), 10 );
 		add_action( 'template_redirect', array( $this, 'guard_register' ), 10 );
+		add_action( 'template_redirect', array( $this, 'guard_login' ), 10 );
 
 		// Cron: sweep expired OTP rows (idempotent).
 		add_action( 'extroverting_daily', array( $this, 'sweep_expired_otps' ) );
@@ -163,13 +164,19 @@ final class Ext_Auth {
 		$otp_key = self::OPT_PREFIX . 'otp_' . md5( $contact['value'] );
 
 		// No-autoload: OTP rows are short-lived and must not bloat the autoload cache.
-		add_option( $otp_key, array(
+		// Use update_option so a re-request after the cooldown replaces the previous code.
+		$otp_data = array(
 			'digest'   => $digest,
 			'ttl'      => time() + ( EXT_OTP_TTL_MINUTES * 60 ),
 			'attempts' => 0,
 			'channel'  => $contact['channel'],
-		), '', false );
-		update_option( $cooldown_key, time() );
+		);
+		if ( false !== get_option( $otp_key, false ) ) {
+			update_option( $otp_key, $otp_data, false );
+		} else {
+			add_option( $otp_key, $otp_data, '', false );
+		}
+		update_option( $cooldown_key, time(), false );
 
 		$dev = self::is_dev_mode();
 
@@ -406,9 +413,11 @@ final class Ext_Auth {
 	 * @return void
 	 */
 	public function map_pretty_routes() {
-		$uri = trim( (string) ( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '' ), '/' );
-		$path = parse_url( $uri, PHP_URL_PATH );
-		$path = (string) trim( (string) $path, '/' );
+		$raw_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+		$raw_uri = sanitize_text_field( (string) $raw_uri );
+		$uri     = trim( $raw_uri, '/' );
+		$path    = parse_url( $uri, PHP_URL_PATH );
+		$path    = (string) trim( (string) $path, '/' );
 
 		$slug = '';
 		if ( preg_match( '#^dashboard(?:/([a-z-]+))?/?$#', $path, $m ) ) {
@@ -449,6 +458,20 @@ final class Ext_Auth {
 		$slug = get_query_var( 'ext_page' );
 		if ( $slug && 0 === strpos( $slug, 'dashboard' ) && ! is_user_logged_in() ) {
 			wp_safe_redirect( home_url( '/account/login?redirect_to=' . rawurlencode( '/dashboard' ) ) );
+			exit;
+		}
+	}
+
+	/**
+	 * Guard: account/login should not show when already logged in — show
+	 * dashboard instead (prevents the logged-in “Welcome back” confusion).
+	 *
+	 * @return void
+	 */
+	public function guard_login() {
+		$slug = get_query_var( 'ext_page' );
+		if ( 'account-login' === $slug && is_user_logged_in() ) {
+			wp_safe_redirect( home_url( '/dashboard' ) );
 			exit;
 		}
 	}
@@ -504,20 +527,30 @@ final class Ext_Auth {
 	 */
 	public function sweep_expired_otps() {
 		global $wpdb;
-		$prefix = $wpdb->esc_like( self::OPT_PREFIX . 'otp_' );
-		$rows   = $wpdb->get_col( $wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name LIKE %s", $prefix . '%' ) );
-		$now    = time();
-		foreach ( $rows as $raw ) {
-			$otp = maybe_unserialize( $raw );
-			if ( is_array( $otp ) && isset( $otp['ttl'] ) && $otp['ttl'] < $now ) {
-				// Delete by key pattern match on the unserialized ttl.
-				$wpdb->query(
-					$wpdb->prepare(
-						"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s AND option_value LIKE %s",
-						$prefix . '%',
-						'%\"ttl\":' . (int) $otp['ttl'] . '%',
-					)
-				);
+		$like = $wpdb->esc_like( self::OPT_PREFIX . 'otp_' ) . '%';
+		$rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s", $like )
+		);
+		if ( empty( $rows ) ) {
+			return;
+		}
+		$now = time();
+		foreach ( $rows as $row ) {
+			$otp = maybe_unserialize( $row->option_value );
+			if ( is_array( $otp ) && isset( $otp['ttl'] ) && (int) $otp['ttl'] < $now ) {
+				delete_option( $row->option_name );
+			}
+		}
+
+		// Also sweep stale cooldown keys older than 24h.
+		$cool_like = $wpdb->esc_like( self::OPT_PREFIX . 'cool_' ) . '%';
+		$cool_rows = $wpdb->get_results(
+			$wpdb->prepare( "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s", $cool_like )
+		);
+		foreach ( (array) $cool_rows as $row ) {
+			$ts = (int) $row->option_value;
+			if ( $ts && $ts < $now - DAY_IN_SECONDS ) {
+				delete_option( $row->option_name );
 			}
 		}
 	}
