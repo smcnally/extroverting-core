@@ -198,28 +198,26 @@ final class Ext_Aws_Sms_Transport extends Ext_OTP_Transport {
 		$all_headers = $headers;
 		$all_headers['Authorization'] = $authorization;
 
-		$curl_headers = array();
-		foreach ( $all_headers as $k => $v ) {
-			$curl_headers[] = $k . ': ' . $v;
+		$url  = 'https://' . $host . $uri;
+		$args = array(
+			'method'      => 'POST',
+			'body'        => $body,
+			'headers'     => $all_headers,
+			'timeout'     => 15,
+			'redirection' => 0,
+			'blocking'    => true,
+			'sslverify'   => true,
+		);
+
+		$response = wp_remote_request( $url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
 		}
 
-		$ch = curl_init( 'https://' . $host . $uri );
-		curl_setopt_array( $ch, array(
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_POST           => true,
-			CURLOPT_POSTFIELDS     => $body,
-			CURLOPT_HTTPHEADER     => $curl_headers,
-			CURLOPT_TIMEOUT        => 15,
-			CURLOPT_SSL_VERIFYPEER => true,
-		) );
-		$response = curl_exec( $ch );
-		$status   = (int) curl_getinfo( $ch, CURLINFO_RESPONSE_CODE );
-		$err      = curl_error( $ch );
-		curl_close( $ch );
+		$status = (int) wp_remote_retrieve_response_code( $response );
+		$body_resp = (string) wp_remote_retrieve_body( $response );
 
-		if ( false === $response ) {
-			return new \WP_Error( 'ext_aws_curl', $err ? $err : 'CURL request failed.' );
-		}
-		return array( $status, (string) $response );
+		return array( $status, $body_resp );
 	}
 }

@@ -4,17 +4,29 @@
  *
  * Namespace: /wp-json/extroverting/v1
  *
+ * Prefer REST over admin-ajax for all new integrations. Each endpoint
+ * declares its schema, sanitize/validate callbacks, and permission check so
+ * it is discoverable in the Site Editor, usable from blocks, and
+ * automatically documented at /wp-json.
+ *
  * Endpoints:
  *   GET  /events?city={id}&cat={slug}&sort={soon|az|added}
  *   GET  /events/{id}
  *   POST /events/{id}/save            (auth) toggle save
+ *   GET  /cities                      list cities (public)
+ *   GET  /cities/{id}                single city
+ *   POST /auth/request-otp           (public) passwordless code request — REST-native alternative to admin-ajax ext_request_otp
+ *   POST /auth/verify-otp            (public) verify code + log in
+ *   POST /auth/register              (public) create account + log in
  *   GET  /account                     (auth) profile + stats
+ *   POST /account                    (auth) update profile/ZIP/consent
  *   GET  /account/saved?filter={upcoming|past}  (auth)
  *   GET  /account/routes?origin={home|work}     (auth)
  *   POST /account/routes              (auth) save a route
  *   DELETE /account/routes            (auth) remove a route
  *   GET  /retailers?ctx={home|work|venue}       (auth)
  *   GET  /consent                     full consent text
+ *   POST /import                     (admin) trigger cfe-events import (WP-CLI remains the primary path)
  *
  * @package Extroverting\Core
  */
@@ -121,12 +133,42 @@ final class Ext_REST {
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'save_route' ),
 			'permission_callback' => 'is_user_logged_in',
+			'args'                => array(
+				'origin'   => array(
+					'required'          => false,
+					'sanitize_callback' => 'sanitize_key',
+					'validate_callback' => function ( $v ) {
+						return in_array( $v, array( 'home', 'work' ), true );
+					},
+					'default'           => 'home',
+				),
+				'event_id' => array(
+					'required'          => true,
+					'sanitize_callback' => 'absint',
+					'validate_callback' => function ( $v ) {
+						return $v > 0;
+					},
+				),
+				'dist'     => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+				'eta'      => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+			),
 		) );
 
 		register_rest_route( self::NS, '/account/routes', array(
 			'methods'             => 'DELETE',
 			'callback'            => array( $this, 'remove_route' ),
 			'permission_callback' => 'is_user_logged_in',
+			'args'                => array(
+				'origin'   => array(
+					'required'          => false,
+					'sanitize_callback' => 'sanitize_key',
+					'default'           => 'home',
+				),
+				'event_id' => array(
+					'required'          => true,
+					'sanitize_callback' => 'absint',
+				),
+			),
 		) );
 
 		register_rest_route( self::NS, '/retailers', array(
@@ -146,6 +188,66 @@ final class Ext_REST {
 			'methods'             => 'GET',
 			'callback'            => array( $this, 'get_consent' ),
 			'permission_callback' => '__return_true',
+		) );
+
+		// --- Auth via REST (modern alternative to admin-ajax) ---
+		register_rest_route( self::NS, '/cities', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'get_cities' ),
+			'permission_callback' => '__return_true',
+		) );
+
+		register_rest_route( self::NS, '/cities/(?P<id>\d+)', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'get_city' ),
+			'permission_callback' => '__return_true',
+		) );
+
+		register_rest_route( self::NS, '/auth/request-otp', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'rest_request_otp' ),
+			'permission_callback' => '__return_true',
+			'args'                => array(
+				'contact' => array(
+					'required'          => true,
+					'type'              => 'string',
+					'sanitize_callback' => 'sanitize_text_field',
+				),
+			),
+		) );
+
+		register_rest_route( self::NS, '/auth/verify-otp', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'rest_verify_otp' ),
+			'permission_callback' => '__return_true',
+			'args'                => array(
+				'contact' => array( 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+				'code'    => array( 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			),
+		) );
+
+		register_rest_route( self::NS, '/auth/register', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'rest_register' ),
+			'permission_callback' => '__return_true',
+			'args'                => array(
+				'contact'  => array( 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+				'home_zip' => array( 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+				'work_zip' => array( 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+				'username' => array( 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_user' ),
+				'first'    => array( 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+				'last'     => array( 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+				'crm'      => array( 'required' => false, 'type' => 'boolean' ),
+			),
+		) );
+
+		// Admin-only import trigger (convenience for ops; primary path remains WP-CLI).
+		register_rest_route( self::NS, '/import', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'rest_import' ),
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
 		) );
 	}
 
@@ -382,9 +484,15 @@ final class Ext_REST {
 		$uid    = get_current_user_id();
 		$origin = $req->get_param( 'origin' ) ?: 'home';
 		$event  = (int) $req->get_param( 'event_id' );
+		if ( ! $event || ! get_post( $event ) ) {
+			return new \WP_Error( 'ext_bad_event', __( 'Event not found.', 'extroverting-core' ), array( 'status' => 404 ) );
+		}
+		if ( ! in_array( $origin, array( 'home', 'work' ), true ) ) {
+			$origin = 'home';
+		}
 		$this->core->get( 'saves' )->save_route( $uid, $origin, $event, array(
-			'dist' => $req->get_param( 'dist' ),
-			'eta'  => $req->get_param( 'eta' ),
+			'dist' => sanitize_text_field( (string) $req->get_param( 'dist' ) ),
+			'eta'  => sanitize_text_field( (string) $req->get_param( 'eta' ) ),
 		) );
 		return rest_ensure_response( array( 'ok' => true ) );
 	}
@@ -396,6 +504,9 @@ final class Ext_REST {
 		$uid    = get_current_user_id();
 		$origin = $req->get_param( 'origin' ) ?: 'home';
 		$event  = (int) $req->get_param( 'event_id' );
+		if ( ! $event ) {
+			return new \WP_Error( 'ext_missing_event', __( 'Missing event.', 'extroverting-core' ), array( 'status' => 400 ) );
+		}
 		$this->core->get( 'saves' )->remove_route( $uid, $origin, $event );
 		return rest_ensure_response( array( 'ok' => true ) );
 	}
@@ -438,5 +549,129 @@ final class Ext_REST {
 	 */
 	public function get_consent( \WP_REST_Request $req ) {
 		return rest_ensure_response( array( 'label' => $this->core->get( 'consent' )->label(), 'full' => $this->core->get( 'consent' )->full_text() ) );
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Cities (public, for block bindings + headless consumers)            */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * GET /cities
+	 */
+	public function get_cities( \WP_REST_Request $req ) {
+		$q   = new \WP_Query( array(
+			'post_type'      => 'ext_city',
+			'post_status'    => 'publish',
+			'posts_per_page' => 100,
+			'orderby'        => 'title',
+			'order'          => 'ASC',
+			'no_found_rows'  => true,
+		) );
+		$out = array();
+		foreach ( $q->posts as $p ) {
+			$out[] = $this->shape_city( $p );
+		}
+		wp_reset_postdata();
+		return rest_ensure_response( array( 'cities' => $out, 'count' => count( $out ) ) );
+	}
+
+	/**
+	 * GET /cities/{id}
+	 */
+	public function get_city( \WP_REST_Request $req ) {
+		$p = get_post( (int) $req['id'] );
+		if ( ! $p || 'ext_city' !== $p->post_type ) {
+			return new \WP_Error( 'ext_not_found', __( 'City not found.', 'extroverting-core' ), array( 'status' => 404 ) );
+		}
+		return rest_ensure_response( $this->shape_city( $p ) );
+	}
+
+	private function shape_city( \WP_Post $p ) {
+		return array(
+			'id'       => $p->ID,
+			'slug'     => $p->post_name,
+			'title'    => $p->post_title,
+			'link'     => get_permalink( $p ),
+			'excerpt'  => $p->post_excerpt,
+			'state'    => get_post_meta( $p->ID, 'ext_state', true ),
+			'launched' => (bool) get_post_meta( $p->ID, 'ext_launched', true ),
+		);
+	}
+
+	/* ------------------------------------------------------------------ */
+	/* Auth via REST (passwordless OTP)                                    */
+	/* ------------------------------------------------------------------ */
+
+	public function rest_request_otp( \WP_REST_Request $req ) {
+		$auth    = $this->core->get( 'auth' );
+		$contact = $auth->normalize_contact( $req->get_param( 'contact' ) );
+		if ( null === $contact ) {
+			return new \WP_Error( 'ext_bad_contact', __( 'Enter a valid email or mobile number.', 'extroverting-core' ), array( 'status' => 400 ) );
+		}
+		$result = $auth->request_otp( $contact );
+		if ( ! $result['ok'] ) {
+			return new \WP_Error( 'ext_otp_failed', $result['error'], array( 'status' => 429 ) );
+		}
+		$payload = array(
+			'message' => sprintf( __( 'Code sent to your %s ✓', 'extroverting-core' ), $result['channel'] ),
+			'channel' => $result['channel'],
+		);
+		if ( ! empty( $result['dev_code'] ) ) {
+			$payload['dev_code'] = $result['dev_code'];
+			$payload['message']  = __( 'Code ready (dev mode) ✓', 'extroverting-core' );
+		}
+		return rest_ensure_response( $payload );
+	}
+
+	public function rest_verify_otp( \WP_REST_Request $req ) {
+		$auth    = $this->core->get( 'auth' );
+		$contact = $auth->normalize_contact( $req->get_param( 'contact' ) );
+		if ( null === $contact ) {
+			return new \WP_Error( 'ext_bad_contact', __( 'Enter a valid email or mobile number.', 'extroverting-core' ), array( 'status' => 400 ) );
+		}
+		$result = $auth->verify_otp( $contact['value'], (string) $req->get_param( 'code' ) );
+		if ( ! $result['ok'] ) {
+			return new \WP_Error( 'ext_bad_code', $result['error'], array( 'status' => 400 ) );
+		}
+		$auth->login( $result['user'] );
+		return rest_ensure_response( array(
+			'message'  => __( 'Welcome back ✓', 'extroverting-core' ),
+			'redirect' => esc_url_raw( home_url( '/dashboard' ) ),
+			'user_id'  => $result['user']->ID,
+		) );
+	}
+
+	public function rest_register( \WP_REST_Request $req ) {
+		$auth   = $this->core->get( 'auth' );
+		$data   = array(
+			'contact'  => $req->get_param( 'contact' ) ?? '',
+			'home_zip' => $req->get_param( 'home_zip' ) ?? '',
+			'work_zip' => $req->get_param( 'work_zip' ) ?? '',
+			'username' => $req->get_param( 'username' ) ?? '',
+			'first'    => $req->get_param( 'first' ) ?? '',
+			'last'     => $req->get_param( 'last' ) ?? '',
+			'crm'      => (bool) $req->get_param( 'crm' ),
+		);
+		$result = $auth->register( $data );
+		if ( ! $result['ok'] ) {
+			return new \WP_Error( 'ext_register_failed', $result['error'], array( 'status' => 400 ) );
+		}
+		$auth->login( $result['user'] );
+		return rest_ensure_response( array(
+			'message'  => sprintf( __( "You're in, %s. We've saved your events and quiz results ✓", 'extroverting-core' ), $result['user']->display_name ),
+			'redirect' => esc_url_raw( home_url( '/dashboard/calendar' ) ),
+			'user_id'  => $result['user']->ID,
+		) );
+	}
+
+	/**
+	 * POST /import — admin-only convenience.
+	 */
+	public function rest_import( \WP_REST_Request $req ) {
+		$summary = \Extroverting\Core\extroverting_core_import_events( null );
+		if ( isset( $summary['error'] ) ) {
+			return new \WP_Error( 'ext_import_error', $summary['error'], array( 'status' => 400 ) );
+		}
+		return rest_ensure_response( array( 'ok' => true, 'summary' => $summary ) );
 	}
 }

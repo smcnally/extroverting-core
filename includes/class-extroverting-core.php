@@ -64,12 +64,14 @@ final class Extroverting_Core {
 		$this->services['age_gate']  = new Ext_Age_Gate();
 		$this->services['consent']   = new Ext_Consent();
 		$this->services['rest']      = new Ext_REST( $this );
+		$this->services['bindings']  = new Ext_Block_Bindings();
 		$this->services['settings']  = new Ext_Settings();
 
 		add_action( 'init', array( $this->services['content'], 'register_types' ) );
 		add_action( 'init', array( $this->services['auth'], 'init' ), 5 );
 		add_action( 'init', array( $this->services['age_gate'], 'init' ) );
 		add_action( 'init', array( $this->services['consent'], 'init' ) );
+		add_action( 'init', array( $this->services['bindings'], 'init' ) );
 		add_action( 'rest_api_init', array( $this->services['rest'], 'register_routes' ) );
 		add_action( 'rest_api_init', array( $this->services['age_gate'], 'allow_session_cookie' ) );
 
