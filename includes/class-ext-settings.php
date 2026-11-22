@@ -76,6 +76,11 @@ final class Ext_Settings {
 			'sanitize_callback' => 'absint',
 			'default'           => 0,
 		) );
+		register_setting( self::OPT_GROUP, 'extroverting_default_city', array(
+			'type'              => 'integer',
+			'sanitize_callback' => 'absint',
+			'default'           => 0,
+		) );
 	}
 
 	/**
@@ -97,6 +102,15 @@ final class Ext_Settings {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
+		$default_city = (int) get_option( 'extroverting_default_city', 0 );
+		$cities        = get_posts( array(
+			'post_type'      => 'ext_city',
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+			'orderby'        => 'title',
+			'order'          => 'ASC',
+			'no_found_rows'  => true,
+		) );
 		$region  = get_option( 'ext_aws_region', 'us-east-1' );
 		$access  = get_option( 'ext_aws_access_key', '' );
 		$secret  = get_option( 'ext_aws_secret_key', '' );
@@ -108,6 +122,22 @@ final class Ext_Settings {
 			<h1><?php esc_html_e( 'Extroverting Settings', 'extroverting-core' ); ?></h1>
 			<form method="post" action="options.php">
 				<?php settings_fields( self::OPT_GROUP ); ?>
+
+				<h2><?php esc_html_e( 'Site', 'extroverting-core' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="extroverting_default_city"><?php esc_html_e( 'Default (hero) city', 'extroverting-core' ); ?></label></th>
+						<td>
+							<select name="extroverting_default_city" id="extroverting_default_city">
+								<option value="0"><?php esc_html_e( '— Automatic (launched city with most events) —', 'extroverting-core' ); ?></option>
+								<?php foreach ( $cities as $c ) : ?>
+									<option value="<?php echo esc_attr( $c->ID ); ?>" <?php selected( $default_city, $c->ID ); ?>><?php echo esc_html( $c->post_title ); ?></option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'City shown on the homepage. Must be a launched city; otherwise the site falls back to the launched city with the most upcoming events. Can also be set via wp-cli: wp option update extroverting_default_city <post ID>.', 'extroverting-core' ); ?></p>
+						</td>
+					</tr>
+				</table>
 
 				<h2><?php esc_html_e( 'OTP — dev mode', 'extroverting-core' ); ?></h2>
 				<table class="form-table" role="presentation">

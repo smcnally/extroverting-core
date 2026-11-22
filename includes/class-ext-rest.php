@@ -559,20 +559,32 @@ final class Ext_REST {
 	 * GET /cities
 	 */
 	public function get_cities( \WP_REST_Request $req ) {
+		// Paginated: honors per_page/page (capped at 1000 per page). Backward
+		// compatible — a bare GET returns the first 100 as before, plus the
+		// total/pages fields for clients that want the full list.
+		$per_page = min( max( absint( $req['per_page'] ) ?: 100, 1 ), 1000 );
+		$page     = max( absint( $req['page'] ) ?: 1, 1 );
 		$q   = new \WP_Query( array(
 			'post_type'      => 'ext_city',
 			'post_status'    => 'publish',
-			'posts_per_page' => 100,
+			'posts_per_page' => $per_page,
+			'paged'          => $page,
 			'orderby'        => 'title',
 			'order'          => 'ASC',
-			'no_found_rows'  => true,
+			'no_found_rows'  => false,
 		) );
 		$out = array();
 		foreach ( $q->posts as $p ) {
 			$out[] = $this->shape_city( $p );
 		}
 		wp_reset_postdata();
-		return rest_ensure_response( array( 'cities' => $out, 'count' => count( $out ) ) );
+		return rest_ensure_response( array(
+			'cities' => $out,
+			'count'  => count( $out ),
+			'total'  => (int) $q->found_posts,
+			'pages'  => (int) $q->max_num_pages,
+			'page'   => $page,
+		) );
 	}
 
 	/**
