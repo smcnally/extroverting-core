@@ -32,6 +32,10 @@ final class Ext_Age_Gate {
 		add_action( 'wp_ajax_ext_age_gate_confirm', array( $this, 'ajax_confirm' ) );
 		add_action( 'wp_ajax_nopriv_ext_age_gate_confirm', array( $this, 'ajax_confirm' ) );
 
+		// Gated pages carry a nonce and depend on a cookie; never let a shared
+		// page cache keep either variant.
+		add_action( 'template_redirect', array( $this, 'nocache_gated' ), 1 );
+
 		/**
 		 * Filter which post types trigger the gate.
 		 *
@@ -103,6 +107,36 @@ final class Ext_Age_Gate {
 		}
 		$gate = locate_template( array( 'templates/ext-age-gate.html' ) );
 		return $gate ? $gate : $template;
+	}
+
+	/**
+	 * Keep gated resources out of the page cache.
+	 *
+	 * The gate is cookie-based and its template carries a nonce. A shared
+	 * cache cannot vary on that cookie, so a stored copy either hands a
+	 * verified visitor the gate again or hands an unverified one the
+	 * content — and a stored nonce goes stale and kills the confirm request.
+	 * Send no-store on every gated URL, verified or not, so neither variant
+	 * can be stored.
+	 *
+	 * @return void
+	 */
+	public function nocache_gated() {
+		if ( ! is_singular( $this->gated_types() ) ) {
+			return;
+		}
+
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+
+		do_action( 'litespeed_control_set_nocache', 'age gate' );
+
+		if ( ! headers_sent() ) {
+			nocache_headers();
+			header( 'Cache-Control: private, no-store, max-age=0' );
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+		}
 	}
 
 	/**
